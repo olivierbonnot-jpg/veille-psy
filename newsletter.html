@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Veille Psy">
+  <title>🧠 Veille Psy Hebdo</title>
+  <style>
+    :root {
+      --primary: #1a73e8;
+      --bg: #f8f9fa;
+      --card: #ffffff;
+      --text: #202124;
+      --muted: #5f6368;
+      --border: #e0e0e0;
+      --tag-a: #e8f0fe; --tag-a-t: #1a73e8;
+      --tag-b: #e6f4ea; --tag-b-t: #1e8e3e;
+      --tag-c: #fce8e6; --tag-c-t: #d93025;
+      --tag-d: #fff3e0; --tag-d-t: #e37400;
+      --tag-e: #f3e8fd; --tag-e-t: #8430ce;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+              color: white; padding: 16px 16px 0; position: sticky; top: 0; z-index: 100;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 12px; }
+    .header h1 span { opacity: 0.85; font-weight: 400; font-size: 13px; margin-left: 6px; }
+
+    /* Tabs */
+    .tabs { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 0;
+            scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-link { flex-shrink: 0; padding: 8px 14px; text-decoration: none;
+               background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+               border-radius: 8px 8px 0 0; font-size: 13px; font-family: inherit;
+               transition: all 0.2s; white-space: nowrap; }
+    .tab-link:hover { background: rgba(255,255,255,0.28); }
+    /* Active: quand l'ancre correspondante est ciblée */
+
+    /* Content */
+
+    .tab-content { display: none; padding: 16px; animation: fadeIn 0.2s ease; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Domain sections */
+    .domain { margin-bottom: 20px; }
+    .domain-title { font-size: 15px; font-weight: 700; margin-bottom: 10px;
+                    display: flex; align-items: center; gap: 6px; }
+
+    /* Article cards */
+    .article { background: var(--card); border-radius: 12px; padding: 14px;
+               margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+               border-left: 3px solid var(--primary); }
+    .article-title { font-size: 14px; font-weight: 600; line-height: 1.4; margin-bottom: 6px; }
+    .article-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .article-body { font-size: 13px; line-height: 1.6; }
+    .article-body .label { font-weight: 600; color: var(--text); }
+    .article-body p { margin-bottom: 4px; }
+    .pubmed-link { display: inline-block; margin-top: 8px; font-size: 12px;
+                   color: var(--primary); text-decoration: none; font-weight: 500; }
+    .pubmed-link:hover { text-decoration: underline; }
+
+    /* Domain color variants */
+    .domain-a .article { border-left-color: var(--tag-a-t); }
+    .domain-b .article { border-left-color: var(--tag-b-t); }
+    .domain-c .article { border-left-color: var(--tag-c-t); }
+    .domain-d .article { border-left-color: var(--tag-d-t); }
+    .domain-e .article { border-left-color: var(--tag-e-t); }
+
+    /* Top 3 */
+    .top3 { background: linear-gradient(135deg, #fff8e1, #fff3e0);
+             border-radius: 12px; padding: 14px; margin-bottom: 20px;
+             border: 1px solid #ffe082; }
+    .top3 h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #e37400; }
+    .top3-item { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+    .top3-rank { font-size: 20px; line-height: 1; flex-shrink: 0; }
+    .top3-text { font-size: 13px; line-height: 1.5; }
+    .top3-text strong { display: block; font-weight: 600; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty p { font-size: 14px; line-height: 1.6; }
+
+    /* Footer */
+    .footer { text-align: center; padding: 20px; font-size: 11px; color: var(--muted); }
+  
+    /* === ONGLETS CSS PURS — fonctionne sans JavaScript === */
+    .tab-content { display: none; }
+    .tab-content:target { display: block; }
+    /* Afficher le premier onglet par défaut (aucun hash dans l'URL) */
+    body:not(:has(.tab-content:target)) .tab-content:first-of-type { display: block; }
+    /* Onglet actif : style sur le lien quand son contenu est ciblé */
+    .tabs a.tab-link { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
+    .tabs a.tab-link:has(+ *) { background: rgba(255,255,255,0.15); }
+
+      body:has(#week-2026-06-09:target) a[href="#week-2026-06-09"] { background: var(--bg); color: var(--primary); font-weight: 700; }
+    body:has(#welcome:target) a[href="#welcome"] { background: var(--bg); color: var(--primary); font-weight: 700; }
+
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 Veille Psy Hebdo <span>par Claude Code</span></h1>
+  <div class="tabs" id="tabHeaders">
+    <!-- TABS_HEADER_INSERT -->
+    <!-- WEEK_START:week-2026-06-09 -->
+    <a href="#week-2026-06-09" class="tab-link">09/06</a>
+    <!-- WEEK_HEADER_END:week-2026-06-09 -->
+    <a href="#welcome" class="tab-link">Accueil</a>
+  </div>
+</div>
+
+<div id="tabContents">
+  <!-- TABS_CONTENT_INSERT -->
+  <!-- WEEK_CONTENT_START:week-2026-06-09 -->
+  <div class="tab-content" id="week-2026-06-09">
+
+    <div class="top3">
+      <h3>⭐ Top 3 de la semaine</h3>
+      <div class="top3-item"><div class="top3-rank">🥇</div><div class="top3-text"><strong>iTBS dual-site pour idées suicidaires chez l'adolescent déprimé (RCT)</strong>Cibler simultanément le CPFDL gauche et le cervelet réduit les idées suicidaires plus efficacement qu'un site unique en seulement 4 jours : une avancée urgente pour la clinique pédopsychiatrique.</div></div>
+      <div class="top3-item"><div class="top3-rank">🥈</div><div class="top3-text"><strong>Prise en charge du TDAH chez l'enfant : revue BMJ 2026</strong>Synthèse complète intégrant les avancées récentes en pharmacogénétique et outils numériques, confirmant une approche multimodale et personnalisée comme standard de soins.</div></div>
+      <div class="top3-item"><div class="top3-rank">🥉</div><div class="top3-text"><strong>Premier modulateur allostérique positif sélectif du récepteur mGlu3 (first-in-class)</strong>Une nouvelle molécule CNS-pénétrante restaure la cognition dans un modèle préclinique de schizophrénie, ouvrant une voie thérapeutique entièrement nouvelle pour les déficits cognitifs.</div></div>
+    </div>
+
+    <div class="domain domain-a">
+      <div class="domain-title">📱 Psychiatrie &amp; Numérique</div>
+
+      <div class="article">
+        <div class="article-title">BRITEpath, application smartphone pour réduire le risque suicidaire des adolescents en soins primaires : essai randomisé contrôlé</div>
+        <div class="article-meta">Toukhy N et al., Suicide &amp; Life-Threatening Behavior 2026 • RCT</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cet essai randomisé (n=101, 12-26 ans) a évalué BRITEpath, une application smartphone couplée à un portail clinicien, comparée au traitement habituel seul en soins primaires. Aucune différence significative sur les critères primaires globaux n'a été observée, mais les utilisateurs de BRITEpath ont montré une diminution plus importante des idées suicidaires au fil du temps.</p>
+          <p><span class="label">Apport : </span>C'est l'un des premiers RCT d'une application anti-suicide intégrée aux soins primaires pédiatriques, montrant un effet modérateur selon les antécédents d'hospitalisation psychiatrique.</p>
+          <p><span class="label">Pratique : </span>BRITEpath peut être proposé en complément du suivi chez les adolescents à risque suicidaire en soins primaires, particulièrement ceux ayant déjà eu un contact avec la psychiatrie.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42261184/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Expériences des aidants avec le programme numérique Altitudes pour la psychose précoce : analyse thématique</div>
+        <div class="article-meta">Ludwig K et al., Digital Health 2026 • Étude qualitative</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Vingt et un aidants de jeunes en premier épisode psychotique ont utilisé Altitudes (plateforme numérique de psychoéducation + soutien entre pairs + modérateurs cliniques) pendant 6 mois aux États-Unis. Quatre thèmes principaux ont émergé : réduction de l'isolement, rôle clé des modérateurs humains, impact des contraintes du rôle d'aidant, et demandes d'interactions plus interactives.</p>
+          <p><span class="label">Apport : </span>Démontre que l'intégration d'un soutien humain dans les outils numériques est perçue comme essentielle pour maintenir l'engagement des aidants de patients psychotiques.</p>
+          <p><span class="label">Pratique : </span>Les outils numériques destinés aux familles de patients psychotiques gagnent à inclure des modérateurs cliniques identifiés pour renforcer la continuité des soins.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42261287/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Modèles de prédiction clinique en santé mentale : guide méthodologique avec application à la dépression prénatale</div>
+        <div class="article-meta">Costa R et al., Psychological Medicine 2026 • Revue</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette revue méthodologique guide le développement et la validation de modèles de prédiction clinique en psychiatrie, illustrée par un modèle pronostique de dépression prénatale (n=5 372 femmes enceintes). Elle compare les approches par régression statistique et par apprentissage automatique en termes d'interprétabilité et d'utilité clinique.</p>
+          <p><span class="label">Apport : </span>Fournit un cadre pratique pour éviter les pièges courants (surapprentissage, hétérogénéité des populations) dans le développement de modèles d'IA appliqués à la psychiatrie.</p>
+          <p><span class="label">Pratique : </span>Aide les cliniciens à évaluer la qualité des outils prédictifs basés sur l'IA avant de les intégrer dans leur pratique, en insistant sur la nécessité d'une validation externe.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42261225/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+    </div>
+
+    <div class="domain domain-b">
+      <div class="domain-title">🎯 TDAH</div>
+
+      <div class="article">
+        <div class="article-title">Avancées dans la prise en charge du TDAH chez l'enfant et l'adolescent</div>
+        <div class="article-meta">Robaey P et al., BMJ 2026 • Revue</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette revue complète publiée dans le BMJ synthétise les données publiées entre 2019 et 2025 sur le TDAH pédiatrique. Elle confirme un modèle dimensionnel et pléiotropique, souligne la fluctuation développementale du trouble, et présente les avancées en pharmacogénétique, en stratégies de titration et en outils numériques validés.</p>
+          <p><span class="label">Apport : </span>Met à jour le positionnement des stimulants (efficacité robuste à court terme) et des non-stimulants (deuxième ligne efficace), et préconise une approche de prescription de précision.</p>
+          <p><span class="label">Pratique : </span>Conforte l'approche multimodale et pragmatique : évaluation semi-structurée, interventions psychosociales ciblées, pharmacologie personnalisée selon le profil développemental et génétique.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42259585/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Tolérance du serdexméthylphénidate/dexméthylphénidate vs autres stimulants à libération prolongée : étude en vie réelle</div>
+        <div class="article-meta">Young JL et al., Frontiers in Pharmacology 2026 • Étude observationnelle</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette analyse rétrospective de 697 questionnaires patients (7-78 ans) compare les effets indésirables auto-rapportés du SDX/d-MPH (Azstarys) avec l'amphétamine ER, la lisdexamfétamine et le méthylphénidate ER en début de traitement. SDX/d-MPH est associé à moins d'insomnie que l'amphétamine ER et la lisdexamfétamine, et à moins d'effet de rebond que l'amphétamine ER.</p>
+          <p><span class="label">Apport : </span>Première évaluation comparative en vie réelle du profil de tolérance du SDX/d-MPH, confirmant l'intérêt de la formulation prodrug pour réduire certains effets indésirables.</p>
+          <p><span class="label">Pratique : </span>SDX/d-MPH peut être une alternative pertinente chez les patients TDAH présentant des troubles du sommeil ou un effet de rebond marqué avec les autres stimulants ER.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42256406/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Sous-fécondité, traitement de l'infertilité et neurodéveloppement de l'enfant (TDAH et TSA)</div>
+        <div class="article-meta">Kahn LG et al., JAMA Network Open 2026 • Étude de cohorte</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Dans cette vaste cohorte américaine (n=15 382 dyades mère-enfant), la sous-fécondité en elle-même (indépendamment du traitement) est associée à un risque accru de TSA (OR 1,27), tandis que les traitements non-FIV sont associés à un risque majoré de TDAH (OR 1,54-1,77) ; la FIV ne montre pas d'association significative.</p>
+          <p><span class="label">Apport : </span>Dissocie pour la première fois l'effet propre de la sous-fécondité parentale de celui des techniques d'AMP sur le risque neurodéveloppemental, suggérant un rôle de facteurs biologiques parentaux sous-jacents.</p>
+          <p><span class="label">Pratique : </span>Les enfants nés de parents ayant eu recours à des traitements de l'infertilité non-FIV méritent un suivi neurodéveloppemental renforcé pour le dépistage du TDAH.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42258210/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+    </div>
+
+    <div class="domain domain-c">
+      <div class="domain-title">💊 Psychotropes</div>
+
+      <div class="article">
+        <div class="article-title">Attitudes dysfonctionnelles en TCC et pharmacothérapie antidépressive dans la dépression : méta-analyse de données individuelles</div>
+        <div class="article-meta">Don FJ et al., Journal of Consulting and Clinical Psychology 2026 • Méta-analyse</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette méta-analyse sur données individuelles (5 RCT, 734 participants) compare la modification des attitudes dysfonctionnelles (AD) sous TCC versus antidépressants dans la dépression adulte. Les deux traitements réduisent significativement les AD, sans différence entre eux ; les AD post-traitement sont associées aux symptômes résiduels de culpabilité et d'idées suicidaires.</p>
+          <p><span class="label">Apport : </span>Remet en question l'hypothèse que la TCC serait spécifiquement supérieure aux antidépressants pour modifier les attitudes cognitives ; la modération par les AD de base reste inconsistante selon les études.</p>
+          <p><span class="label">Pratique : </span>Le choix TCC vs antidépressants ne devrait pas reposer sur le niveau d'attitudes dysfonctionnelles initial ; d'autres facteurs cliniques doivent guider la décision thérapeutique.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42241063/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Pharmacothérapie du trouble stress post-traumatique (PTSD) : revue Cochrane mise à jour</div>
+        <div class="article-meta">Williams T et al., Cochrane Database of Systematic Reviews 2026 • Méta-analyse</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette mise à jour Cochrane inclut 66 RCT (7 442 participants). Les ISRS améliorent significativement les symptômes de PTSD vs placebo (RR 0,66 ; preuves modérées) ; la mirtazapine et l'amitriptyline montrent aussi un bénéfice (preuves faibles). Les antipsychotiques ne montrent pas de bénéfice significatif (preuves très faibles).</p>
+          <p><span class="label">Apport : </span>Confirme les ISRS comme agents de première ligne pour le PTSD avec un niveau de preuve modéré, et souligne l'absence de données suffisantes pour d'autres classes, invitant à la recherche de nouveaux agents.</p>
+          <p><span class="label">Pratique : </span>Les ISRS restent le traitement pharmacologique de référence du PTSD ; la mirtazapine peut être une alternative mais les données restent limitées.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42206608/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Arrêt des antidépressants en médecine générale : vécu des patients dans l'essai RELEASE</div>
+        <div class="article-meta">Moura Ferreira P et al., BMJ Open 2026 • RCT / Qualitative</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Trente et un patients (durée moyenne d'utilisation : 16,5 ans) prenant des antidépresseurs au long cours ont été interviewés dans le cadre de l'essai RELEASE. La trousse d'outils (plans de décroissance hyperbolique + aide à la décision partagée) a favorisé la réflexion et renforcé l'autonomie, mais des obstacles persistent : difficulté d'accès aux mini-doses et gestion des symptômes de sevrage.</p>
+          <p><span class="label">Apport : </span>Valide l'approche de décroissance hyperbolique des antidépressants et identifie les barrières pratiques à sa mise en œuvre en soins primaires.</p>
+          <p><span class="label">Pratique : </span>La déprescription d'antidépressants nécessite des plans de décroissance personnalisés et un accompagnement explicite sur le risque de symptômes de sevrage pour être acceptée et efficace.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42167941/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+    </div>
+
+    <div class="domain domain-d">
+      <div class="domain-title">⚡ TMS &amp; Neuromodulation</div>
+
+      <div class="article">
+        <div class="article-title">iTBS dual-site (CPFDL + cervelet) pour les idées suicidaires chez l'adolescent déprimé : essai randomisé contrôlé</div>
+        <div class="article-meta">Huang D et al., JAMA Network Open 2026 • RCT</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Dans cet essai randomisé en double aveugle (n=59, 12-18 ans), l'iTBS accéléré ciblant simultanément le CPFDL gauche et le cervelet réduit les idées suicidaires plus efficacement que l'iTBS site unique (différence de score BSI : 4,94 points ; p=0,02 ; d=0,61) en 4 jours seulement, sans effets indésirables graves.</p>
+          <p><span class="label">Apport : </span>Démontre pour la première fois l'intérêt d'une cible cérébelleuse additionnelle pour potentialiser l'effet antisuicidaire de l'iTBS en population adolescente.</p>
+          <p><span class="label">Pratique : </span>L'iTBS dual-site pourrait devenir un outil de crise rapide pour les adolescents avec MDD et idéation suicidaire aiguë, complément précieux aux approches pharmacologiques et psychothérapiques.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42154469/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">Stimulation theta-burst intermittente pour la dépression dans la maladie de Parkinson : essai randomisé contrôlé</div>
+        <div class="article-meta">Hou M et al., JAMA Network Open 2026 • RCT</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cet essai à trois bras (iTBS ultra-bref vs rTMS HF vs sham, n=54 patients parkinsoniens déprimés) montre que l'iTBS (3 min 20 s/session) est aussi efficace que la rTMS HF standard (20 min/session) sur les scores dépressifs à 2 et 6 semaines, avec en plus une réduction de l'anxiété et une amélioration de la qualité de vie.</p>
+          <p><span class="label">Apport : </span>Valide l'iTBS comme alternative pratique à la rTMS HF pour la dépression parkinsonienne, réduisant drastiquement la durée de séance tout en maintenant l'efficacité.</p>
+          <p><span class="label">Pratique : </span>L'iTBS peut faciliter l'accès à la neuromodulation pour les patients parkinsoniens déprimés dont la tolérance à de longues séances est limitée.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42160055/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">rTMS pour le trouble dépressif majeur : preuves cliniques, mécanismes neurobiologiques et perspectives thérapeutiques</div>
+        <div class="article-meta">Angulo Rodriguez DA et al., Cureus 2026 • Revue narrative</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette revue narrative (31 articles inclus, 2006-2025) synthétise les preuves de la rTMS dans la dépression résistante. Les taux de réponse restent modestes (~29% pour les protocoles HF), la TBS a une efficacité comparable avec des séances plus courtes, et la Stanford Neuromodulation Therapy (SNT) montre des résultats préliminaires frappants mais nécessite réplication.</p>
+          <p><span class="label">Apport : </span>Identifie les biomarqueurs neuro-imagerie (connectivité au repos) comme prometteurs pour la prédiction de réponse, mais encore hors de portée clinique routinière.</p>
+          <p><span class="label">Pratique : </span>La rTMS a sa place dans la dépression résistante ; la question clinique centrale reste : pour qui, à quel moment de la prise en charge, et comment maintenir la réponse à long terme.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42261501/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+    </div>
+
+    <div class="domain domain-e">
+      <div class="domain-title">🔬 Articles Innovants</div>
+
+      <div class="article">
+        <div class="article-title">Découverte du VU6053371/BI03738809 : premier modulateur allostérique positif sélectif du récepteur mGlu3, pénétrant le SNC, avec efficacité préclinique sur la cognition</div>
+        <div class="article-meta">Jones CA et al., ACS Chemical Neuroscience 2026 • Autre (pharmacologie)</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Les chercheurs de Vanderbilt et Boehringer Ingelheim rapportent la découverte du premier PAM sélectif du récepteur mGlu3 pénétrant le SNC (VU6053371/BI03738809). Cette molécule améliore la reconnaissance d'objets nouveaux chez le rat (dose minimale efficace : 3 mg/kg) et montre une relation PK/PD claire, suggérant que l'activation sélective de mGlu3 est une nouvelle voie pour traiter les déficits cognitifs de la schizophrénie.</p>
+          <p><span class="label">Apport : </span>Complète la boîte à outils pharmacologique du groupe II des récepteurs mGlu (mGlu2/mGlu3) avec le premier PAM sélectif mGlu3 utilisable in vivo, ouvrant une piste first-in-class pour les troubles cognitifs associés à la schizophrénie.</p>
+          <p><span class="label">Pratique : </span>Cette avancée préclinique pourrait à terme offrir une option thérapeutique ciblée pour les déficits cognitifs de la schizophrénie, résistants aux antipsychotiques actuels.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42249812/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">L'acétyl-L-carnitine dans les troubles de l'humeur : revue systématique et méta-analyse</div>
+        <div class="article-meta">Kumar R et al., Neuropsychiatric Disease and Treatment 2026 • Méta-analyse</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette méta-analyse (10 études, 809 participants, 14 RCT) montre que l'ALC réduit significativement les symptômes dépressifs vs placebo avec une efficacité comparable aux antidépresseurs standards et moins d'effets indésirables. Les analyses de sous-groupes suggèrent un bénéfice renforcé chez les personnes âgées et les déprimés résistants.</p>
+          <p><span class="label">Apport : </span>Positionne l'ALC à la fois comme biomarqueur potentiel (taux abaissés dans le TDM) et comme agent thérapeutique adjuvant agissant sur la mitochondrie, la neuroplasticité et la neurotransmission.</p>
+          <p><span class="label">Pratique : </span>L'ALC pourrait être envisagée comme augmentation thérapeutique dans les dépressions résistantes du sujet âgé, en attente d'essais à plus grande échelle.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42261369/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+
+      <div class="article">
+        <div class="article-title">La déficience en ATOX1 induit des troubles de la mémoire via la cuproptose dans la maladie d'Alzheimer</div>
+        <div class="article-meta">Yu H et al., Journal of Advanced Research 2026 • Autre (neurosciences fondamentales)</div>
+        <div class="article-body">
+          <p><span class="label">Résumé : </span>Cette étude identifie que la protéine chaperon du cuivre ATOX1 est significativement diminuée dans les cerveaux Alzheimer. Sa déplétion entraîne une accumulation de cuivre, des lésions mitochondriales et une cuproptose neuronale via la répression transcriptionnelle par Runx1. La restauration d'ATOX1 chez la souris APP/PS1 renverse les déficits mnésiques.</p>
+          <p><span class="label">Apport : </span>Établit un nouveau mécanisme physiopathologique liant la pathologie amyloïde à la dysrégulation du cuivre et à une forme nouvelle de mort cellulaire (cuproptose), proposant ATOX1 comme cible thérapeutique.</p>
+          <p><span class="label">Pratique : </span>Ouvre une piste thérapeutique originale dans la maladie d'Alzheimer ciblant l'homéostasie du cuivre, distincte des approches anti-amyloïdes ou anti-tau actuelles.</p>
+        </div>
+        <a class="pubmed-link" href="https://pubmed.ncbi.nlm.nih.gov/42250721/" target="_blank">🔗 Voir sur PubMed</a>
+      </div>
+    </div>
+
+    <div class="footer">Générée le 09/06/2026 • PubMed</div>
+  </div>
+  <!-- WEEK_CONTENT_END:week-2026-06-09 -->
+
+  <div class="tab-content" id="welcome">
+    <div class="empty">
+      <div class="icon">🔬</div>
+      <p><strong>Première newsletter à venir</strong><br><br>
+      La veille tourne chaque <strong>lundi à 9h</strong>.<br>
+      Les articles de la semaine apparaîtront ici automatiquement.<br><br>
+      📱 <strong>Ajouter à l'écran d'accueil :</strong><br>
+      Ouvre ce fichier dans Safari → icône Partager → <em>"Sur l'écran d'accueil"</em></p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Mise à jour automatique chaque lundi • Sources : PubMed</div>
+
+
+</body>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Veille Livre IA">
+  <title>📚 Veille — Votre enfant parle à une machine</title>
+  <style>
+    :root {
+      --primary: #6b3fa0;
+      --primary-dark: #4a2870;
+      --bg: #f7f5fb;
+      --card: #ffffff;
+      --text: #1a1a2e;
+      --muted: #6b6b8a;
+      --border: #e0d8f0;
+      --tag-a: #f0e8ff; --tag-a-t: #6b3fa0;
+      --tag-b: #e8f4ff; --tag-b-t: #1a6eb5;
+      --tag-c: #fff0f5; --tag-c-t: #c2185b;
+      --tag-d: #fff8e6; --tag-d-t: #d47e00;
+      --tag-e: #f0fff4; --tag-e-t: #1b7a3e;
+      --tag-web: #fff3e0; --tag-web-t: #bf5600;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #6b3fa0 0%, #3d1f6e 100%);
+              color: white; padding: 14px 16px 0; position: sticky; top: 0; z-index: 100;
+              box-shadow: 0 2px 10px rgba(107,63,160,0.3); }
+    .header-top { margin-bottom: 3px; }
+    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+    .header h2 { font-size: 12px; font-weight: 400; opacity: 0.8; margin-bottom: 10px;
+                 font-style: italic; }
+
+    /* Tabs */
+    .tabs { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 0;
+            scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-link { flex-shrink: 0; padding: 8px 14px; text-decoration: none;
+               background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+               border-radius: 8px 8px 0 0; font-size: 13px; font-family: inherit;
+               transition: all 0.2s; white-space: nowrap; }
+    .tab-link:hover { background: rgba(255,255,255,0.28); }
+    /* Active: quand l'ancre correspondante est ciblée */
+
+    /* Content */
+
+    .tab-content { display: none; padding: 16px; animation: fadeIn 0.2s ease; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Top 3 box */
+    .top3 { background: linear-gradient(135deg, #f5edff, #ede0ff);
+             border-radius: 14px; padding: 14px; margin-bottom: 16px;
+             border: 1px solid #d4b8f0; }
+    .top3 h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: var(--primary-dark); }
+    .top3-item { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-start; }
+    .top3-rank { font-size: 20px; line-height: 1.2; flex-shrink: 0; }
+    .top3-text { font-size: 13px; line-height: 1.5; }
+    .top3-text strong { display: block; font-weight: 600; color: var(--primary-dark); }
+
+    /* Angles narratifs */
+    .angles { background: linear-gradient(135deg, #fff9f0, #fff3e0);
+              border-radius: 14px; padding: 14px; margin-bottom: 16px;
+              border: 1px solid #ffd699; }
+    .angles h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #bf5600; }
+    .angle-item { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #ffe0b2; }
+    .angle-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    .angle-title { font-size: 13px; font-weight: 700; color: #5d3a00; margin-bottom: 3px; }
+    .angle-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* Domain sections */
+    .domain { margin-bottom: 18px; }
+    .domain-title { font-size: 14px; font-weight: 700; margin-bottom: 10px;
+                    display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+                    border-radius: 8px; }
+    .domain-a .domain-title { background: var(--tag-a); color: var(--tag-a-t); }
+    .domain-b .domain-title { background: var(--tag-b); color: var(--tag-b-t); }
+    .domain-c .domain-title { background: var(--tag-c); color: var(--tag-c-t); }
+    .domain-d .domain-title { background: var(--tag-d); color: var(--tag-d-t); }
+    .domain-e .domain-title { background: var(--tag-e); color: var(--tag-e-t); }
+    .domain-web .domain-title { background: var(--tag-web); color: var(--tag-web-t); }
+
+    /* Article cards */
+    .article { background: var(--card); border-radius: 12px; padding: 13px;
+               margin-bottom: 9px; box-shadow: 0 1px 4px rgba(107,63,160,0.08);
+               border-left: 3px solid var(--primary); }
+    .domain-a .article { border-left-color: var(--tag-a-t); }
+    .domain-b .article { border-left-color: var(--tag-b-t); }
+    .domain-c .article { border-left-color: var(--tag-c-t); }
+    .domain-d .article { border-left-color: var(--tag-d-t); }
+    .domain-e .article { border-left-color: var(--tag-e-t); }
+    .domain-web .article { border-left-color: var(--tag-web-t); background: #fffaf4; }
+
+    .article-title { font-size: 13px; font-weight: 600; line-height: 1.4; margin-bottom: 4px; }
+    .article-title a { color: var(--primary-dark); text-decoration: none; }
+    .article-title a:hover { text-decoration: underline; }
+    .article-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .article-body { font-size: 12px; line-height: 1.6; }
+    .article-body p { margin-bottom: 4px; }
+    .label { font-weight: 700; }
+    .label-resume { color: #444; }
+    .label-livre { color: var(--primary-dark); }
+    .label-arg { color: #bf5600; }
+
+    /* Web bullets */
+    .web-section { margin-bottom: 12px; }
+    .web-section h4 { font-size: 13px; font-weight: 700; color: #bf5600; margin-bottom: 7px; }
+    .web-item { font-size: 12px; line-height: 1.6; margin-bottom: 6px; padding-left: 14px;
+                position: relative; }
+    .web-item::before { content: "•"; position: absolute; left: 0; color: var(--primary); font-weight: 700; }
+    .web-item a { color: var(--primary); text-decoration: none; }
+    .web-item a:hover { text-decoration: underline; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 50px 20px; color: var(--muted); }
+    .empty .icon { font-size: 48px; margin-bottom: 14px; }
+    .empty p { font-size: 14px; line-height: 1.7; }
+    .empty strong { color: var(--primary-dark); }
+
+    /* Footer */
+    .entry-footer { text-align: center; padding: 12px; font-size: 11px;
+                    color: var(--muted); border-top: 1px solid var(--border); margin-top: 10px; }
+  
+    /* === ONGLETS CSS PURS — fonctionne sans JavaScript === */
+    .tab-content { display: none; }
+    .tab-content:target { display: block; }
+    /* Afficher le premier onglet par défaut (aucun hash dans l'URL) */
+    body:not(:has(.tab-content:target)) .tab-content:first-of-type { display: block; }
+    /* Onglet actif : style sur le lien quand son contenu est ciblé */
+    .tabs a.tab-link { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); }
+    .tabs a.tab-link:has(+ *) { background: rgba(255,255,255,0.15); }
+
+      body:has(#week-2026-06-09:target) a[href="#week-2026-06-09"] { background: var(--bg); color: var(--primary); font-weight: 700; }
+    body:has(#welcome:target) a[href="#welcome"] { background: var(--bg); color: var(--primary); font-weight: 700; }
+
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1>📚 Votre enfant parle à une machine</h1>
+    <h2>Veille scientifique — IA &amp; Enfants/Adolescents</h2>
+  </div>
+  <div class="tabs" id="tabHeaders">
+    <!-- TABS_HEADER_INSERT -->
+    <!-- WEEK_START:week-2026-06-09 -->
+    <a href="#week-2026-06-09" class="tab-link">09/06</a>
+    <!-- WEEK_HEADER_END:week-2026-06-09 -->
+    <a href="#welcome" class="tab-link">Accueil</a>
+  </div>
+</div>
+
+<div id="tabContents">
+  <!-- TABS_CONTENT_INSERT -->
+  <!-- WEEK_CONTENT_START:week-2026-06-09 -->
+  <div class="tab-content" id="week-2026-06-09">
+
+    <div class="top3">
+      <h3>⭐ Top 3 pour le livre</h3>
+      <div class="top3-item"><div class="top3-rank">🥇</div><div class="top3-text"><strong>Trajectoires d'usage addictif des écrans et comportements suicidaires (JAMA 2025)</strong>Un usage addictif croissant des réseaux sociaux dès 11 ans double le risque de tentatives de suicide : donnée choc pour ancrer l'urgence du livre.</div></div>
+      <div class="top3-item"><div class="top3-rank">🥈</div><div class="top3-text"><strong>Les chatbots IA réduisent la détresse mais pas le bien-être (méta-analyse 2025)</strong>Les chatbots soulagent les symptômes mais ne construisent pas le bien-être positif : ils sont des béquilles, pas des thérapeutes — argument central du livre.</div></div>
+      <div class="top3-item"><div class="top3-rank">🥉</div><div class="top3-text"><strong>GenAI : autonomie cognitive ou délestage intellectuel ? (J Med Internet Res 2025)</strong>Sans encadrement, l'IA remplace la pensée critique plutôt qu'elle ne l'amplifie — nœud narratif clé pour le chapitre sur l'école et l'IA.</div></div>
+    </div>
+
+    <div class="angles">
+      <h3>💡 Angles narratifs suggérés</h3>
+      <div class="angle-item">
+        <div class="angle-title">"Le paradoxe du soulagement sans guérison"</div>
+        <div class="angle-text">Les chatbots thérapeutiques réduisent mesuralement la détresse (SMD -0.35 à -0.43) mais n'améliorent pas le bien-être positif ni l'estime de soi. Ils traitent le symptôme sans construire la résilience. Pour le livre : un chapitre entier sur la différence entre supprimer la souffrance et construire la santé mentale — et pourquoi une machine ne peut pas faire le second.</div>
+      </div>
+      <div class="angle-item">
+        <div class="angle-title">"Dès 11 ans, l'addiction commence"</div>
+        <div class="angle-text">L'étude ABCD/JAMA 2025 montre qu'un tiers des enfants de 11 ans entame une trajectoire d'usage addictif des réseaux sociaux, avec un risque suicidaire doublé à l'adolescence. Ce chiffre — un enfant sur trois — peut structurer un chapitre-choc sur la fenêtre développementale critique.</div>
+      </div>
+      <div class="angle-item">
+        <div class="angle-title">"La machine qui nous connaît mieux que nos parents"</div>
+        <div class="angle-text">Le modèle IA de la Nature Medicine prédit le risque psychiatrique d'un enfant avec une précision de 84% à partir de questionnaires simples. Angle narratif : l'IA comme outil de détection précoce, mais aussi comme miroir inquiétant d'une société qui délègue à la machine la connaissance de ses enfants.</div>
+      </div>
+    </div>
+
+    <div class="domain domain-a">
+      <div class="domain-title">🤖 IA &amp; Santé mentale enfants/ados</div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/41313175/" target="_blank">Efficacité des chatbots IA pour réduire la détresse mentale chez les adolescents et jeunes adultes : revue systématique et méta-analyse</a></div>
+        <div class="article-meta">Feng X et al., J Med Internet Res, 2025 | Méta-analyse (31 RCTs, 29 637 participants)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Les chatbots IA montrent des effets petits à modérés sur la détresse mentale (SMD -0.35) chez les 15-39 ans. Améliorations significatives pour dépression (-0.43), anxiété (-0.37) et stress (-0.41). L'engagement utilisateur est le facteur clé de succès.</p>
+          <p><span class="label label-livre">Lien livre : </span>Documente scientifiquement ce que les chatbots peuvent — et ne peuvent pas — faire pour la santé mentale des jeunes.</p>
+          <p><span class="label label-arg">Argument : </span>Les chatbots réduisent les symptômes mais n'améliorent pas le bien-être positif, l'affect ou l'estime de soi — la machine soigne le symptôme, pas la personne.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/40662463/" target="_blank">Interventions par chatbot pour améliorer la santé mentale des jeunes : revue systématique et méta-analyse</a></div>
+        <div class="article-meta">Li J et al., Worldviews Evid Based Nurs, 2025 | Méta-analyse (29 études, 13 RCTs)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Les chatbots réduisent significativement la détresse psychologique (Hedge's g = -0.28) mais sans effet significatif sur le bien-être. Les plateformes de messagerie instantanée sont les plus efficaces. Faisabilité et acceptabilité globalement bonnes.</p>
+          <p><span class="label label-livre">Lien livre : </span>Offre une synthèse des preuves actuelles avec les limites claires à exposer au lecteur.</p>
+          <p><span class="label label-arg">Argument : </span>L'efficacité dépend fortement du type de plateforme et du mode d'interaction — il n'y a pas "un" chatbot, il y a des usages très différents.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/40044931/" target="_blank">Prédiction du risque de santé mentale chez les adolescents par intelligence artificielle</a></div>
+        <div class="article-meta">Hill ED et al., Nature Medicine, 2025 | Cohorte prospective (n=11 000, étude ABCD)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Un modèle IA entraîné sur des questionnaires psychosociaux prédit avec 84% de précision (AUC=0.84) quel enfant entrera dans le groupe psychiatrique à haut risque l'année suivante. Les troubles du sommeil surpassent les traumatismes comme prédicteur.</p>
+          <p><span class="label label-livre">Lien livre : </span>L'IA comme outil de détection précoce — mais qui doit savoir ? Les parents ? L'école ? Et que fait-on de cette prédiction ?</p>
+          <p><span class="label label-arg">Argument : </span>L'IA peut prédire la maladie mentale d'un enfant un an avant qu'elle n'apparaisse — données choc pour ouvrir un chapitre sur surveillance et médicalisation préventive par algorithme.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="domain domain-b">
+      <div class="domain-title">📱 Temps d'écran &amp; Développement cognitif</div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/40531519/" target="_blank">Trajectoires d'usage addictif des écrans et comportements suicidaires chez les jeunes américains</a></div>
+        <div class="article-meta">Xiao Y et al., JAMA, 2025 | Cohorte longitudinale (n=4 285, étude ABCD, suivi 4 ans)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Un tiers des participants développent une trajectoire addictive croissante des réseaux sociaux dès 11 ans, associée à un risque suicidaire x2.14. Le temps total d'écran seul n'est pas prédictif — c'est l'addiction qui compte.</p>
+          <p><span class="label label-livre">Lien livre : </span>Distinction capitale entre usage et addiction : le livre peut s'appuyer sur cette étude pour nuancer le débat "temps d'écran".</p>
+          <p><span class="label label-arg">Argument : </span>C'est la trajectoire addictive — pas le temps passé — qui double le risque suicidaire : un enfant sur trois est sur cette trajectoire dès 11 ans.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/40172268/" target="_blank">Ce que nous savons sur le temps d'écran et les réseaux sociaux au début de l'adolescence : revue ABCD</a></div>
+        <div class="article-meta">Nagata JM et al., Curr Opin Pediatr, 2025 | Revue (étude ABCD, n&gt;11 000)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Depuis la COVID, le temps d'écran des 9-15 ans a fortement augmenté. Les associations avec dépression, anxiété, TCA, TDAH, troubles du sommeil et risques cardiovasculaires sont documentées. Les pratiques parentales protectrices incluent la restriction en chambre et aux repas.</p>
+          <p><span class="label label-livre">Lien livre : </span>Panorama complet et actualisé des effets des écrans sur la santé physique et mentale des préadolescents — socle scientifique solide pour le livre.</p>
+          <p><span class="label label-arg">Argument : </span>L'effet COVID a amplifié une tendance préoccupante : les enfants qui ont grandi avec les écrans pendant le confinement montrent des associations plus fortes avec les troubles mentaux.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/39226046/" target="_blank">Utilisation des écrans à l'heure du coucher et durée et qualité du sommeil chez les jeunes</a></div>
+        <div class="article-meta">Brosnan B et al., JAMA Pediatrics, 2024 | Cohorte répétée (n=79, mesures objectives, 4 nuits)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>C'est le temps d'écran dans le lit (pas avant) qui nuit au sommeil. L'usage interactif coûte 9 min de sommeil par 10 min d'usage, les jeux vidéo 17 min. Les recommandations "zéro écran avant le lit" sont ni réalistes ni appropriées.</p>
+          <p><span class="label label-livre">Lien livre : </span>Remet en question les conseils habituels : c'est le type et le lieu d'utilisation qui comptent, pas juste la durée.</p>
+          <p><span class="label label-arg">Argument : </span>Un enfant qui joue au lit 30 minutes perd en moyenne 51 minutes de sommeil — mais regarder passivement une vidéo au salon est moins délétère qu'on ne le croyait.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="domain domain-c">
+      <div class="domain-title">🤝 IA Compagnon &amp; Relations parasociales</div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/37169271/" target="_blank">Considérations éthiques dans les interactions enfant-robot</a></div>
+        <div class="article-meta">Langer A et al., Neurosci Biobehav Rev, 2023 | Revue</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Les robots sociaux promettent des bénéfices en éducation et réhabilitation, mais l'impact sur le développement socio-émotionnel à long terme reste inconnu. Des études longitudinales sont urgentes avant toute généralisation.</p>
+          <p><span class="label label-livre">Lien livre : </span>Légitime scientifiquement l'inquiétude du livre : on déploie ces technologies avant de connaître leurs effets sur le développement de l'enfant.</p>
+          <p><span class="label label-arg">Argument : </span>On généralise les robots sociaux chez les enfants avant d'avoir les données — une expérience de masse sans consentement éclairé des familles.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/40106503/" target="_blank">Thérapie assistée par chien réel vs chien-robot chez des enfants autistes ou trisomiques : RCT</a></div>
+        <div class="article-meta">Van Der Steen S et al., PLoS One, 2025 | RCT (n=65, 7-16 ans)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Le chien réel améliore significativement mieux la régulation émotionnelle que le chien-robot. Les effets du robot sont moins robustes et plus variables. Le vivant fait mieux que la simulation.</p>
+          <p><span class="label label-livre">Lien livre : </span>Preuve empirique directe que la présence vivante a une valeur irremplaçable — même pour des enfants avec des difficultés relationnelles profondes.</p>
+          <p><span class="label label-arg">Argument : </span>Même chez des enfants autistes, un chien réel surpasse un robot-chien — le vivant, l'imprévisible, le biologique restent irremplaçables.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/37017061/" target="_blank">Des enfants et des robots sociaux</a></div>
+        <div class="article-meta">Goldman EJ et al., Behav Brain Sci, 2023 | Commentaire</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Les nourrissons interagissent avec les robots comme avec d'autres agents sociaux. La compréhension que les robots sont des artefacts (non vivants) se développe progressivement en période préscolaire.</p>
+          <p><span class="label label-livre">Lien livre : </span>Explique pourquoi les très jeunes enfants sont les plus à risque : leur cerveau n'a pas encore la maturité pour distinguer l'IA d'un vrai partenaire social.</p>
+          <p><span class="label label-arg">Argument : </span>Avant 4-5 ans, un enfant ne comprend pas qu'un robot n'est pas vivant — exposer de très jeunes enfants à des IA conversationnelles, c'est jouer avec le feu développemental.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="domain domain-d">
+      <div class="domain-title">🧠 Délestage cognitif &amp; Dépendance à l'IA</div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/41183320/" target="_blank">IA générative en éducation : renforcer la pensée critique ou miner l'autonomie cognitive ?</a></div>
+        <div class="article-meta">Izquierdo-Condoy JS et al., J Med Internet Res, 2025 | Viewpoint</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>L'IA générative améliore la productivité des étudiants mais risque de créer une dépendance cognitive. Sans intégration pédagogique réfléchie, l'IA remplace la pensée critique plutôt qu'elle ne la soutient.</p>
+          <p><span class="label label-livre">Lien livre : </span>Thème central : la machine peut-elle penser à la place de l'enfant ? Cet article apporte la nuance scientifique — tout dépend de comment on l'utilise.</p>
+          <p><span class="label label-arg">Argument : </span>L'IA peut être un amplificateur ou un substitut cognitif — la différence tient entièrement à la pédagogie et au cadre, pas à la technologie elle-même.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/39850144/" target="_blank">IA générative dans l'enseignement supérieur : équilibrer innovation et intégrité</a></div>
+        <div class="article-meta">Francis NJ et al., Br J Biomed Sci, 2025 | Revue</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>L'IA générative transforme l'évaluation et les apprentissages, mais menace l'intégrité académique et creuse la fracture numérique. Recommande des programmes de littératie IA et des évaluations repensées.</p>
+          <p><span class="label label-livre">Lien livre : </span>Que valent encore les diplômes quand une machine fait les devoirs ? Donne les outils pour un chapitre sur l'école face à l'IA.</p>
+          <p><span class="label label-arg">Argument : </span>L'IA creuse les inégalités : les enfants avec accès et compétences IA profitent, les autres sont laissés encore plus loin derrière — une fracture numérique de deuxième génération.</p>
+        </div>
+      </div>
+      <div class="article">
+        <div class="article-title"><a href="https://pubmed.ncbi.nlm.nih.gov/39152099/" target="_blank">Impact de l'apprentissage assisté par IA sur le raisonnement clinique et la prise de décision éthique</a></div>
+        <div class="article-meta">Shin H et al., Comput Inform Nurs, 2024 | Quasi-expérimentale (n=99)</div>
+        <div class="article-body">
+          <p><span class="label label-resume">Résumé : </span>Les étudiants utilisant ChatGPT sont moins bons en raisonnement clinique et en éthique que ceux ayant utilisé des méthodes traditionnelles. L'IA offre efficacité temporelle mais réduit la profondeur de réflexion.</p>
+          <p><span class="label label-livre">Lien livre : </span>Preuve expérimentale directe que l'IA seule nuit à la pensée critique chez les apprenants — transposable aux enfants et adolescents.</p>
+          <p><span class="label label-arg">Argument : </span>Les étudiants avec IA sont plus rapides mais moins bons — l'efficacité masque un appauvrissement cognitif réel que ni l'étudiant ni l'enseignant ne perçoit facilement.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="domain domain-e">
+      <div class="domain-title">⚠️ Sécurité, Deepfakes &amp; Régulation</div>
+      <div class="article">
+        <div class="article-body">
+          <p><em>Aucun article PubMed récent sur cette période — données issues de la veille web ci-dessous.</em></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="domain domain-web">
+      <div class="domain-title">🌐 Actualités &amp; Rapports</div>
+      <div class="article">
+        <div class="web-section">
+          <h4>Politique &amp; Institutions</h4>
+          <div class="web-item">🇫🇷 <strong>France :</strong> Depuis le 26 janvier 2026, l'Assemblée nationale a adopté une loi interdisant les réseaux sociaux aux moins de 15 ans. — <a href="https://www.santementale.fr/2026/01/reseaux-sociaux-lanses-emet-des-recommandations-pour-proteger-les-ados/" target="_blank">Santé Mentale / ANSES</a></div>
+          <div class="web-item">🇺🇸 <strong>Californie :</strong> Première législation américaine régulant les chatbots IA pour mineurs — vérification d'âge, avertissements et protocoles anti-suicide obligatoires. — <a href="https://www.ledevoir.com/monde/etats-unis/924795/californie-regule-chatbots-ia-premiere-etats-unis" target="_blank">Le Devoir</a></div>
+          <div class="web-item">🌍 <strong>UNESCO 2026 :</strong> Rapport mondial sur l'éducation centré sur l'accès et l'équité — l'IA éducative y occupe une place croissante. — <a href="https://www.ei-ie.org/fr/item/32242:rapport-mondial-de-suivi-sur-leducation-2026" target="_blank">Internationale de l'Éducation</a></div>
+        </div>
+        <div class="web-section">
+          <h4>Chatbots &amp; Produits IA pour enfants</h4>
+          <div class="web-item">⚠️ <strong>Character.AI &amp; Google</strong> règlent à l'amiable des poursuites liées à des suicides d'adolescents (jan. 2026). Character.AI a banni les moins de 18 ans des conversations ouvertes. — <a href="https://fortune.com/2026/01/08/google-character-ai-settle-lawsuits-teenage-child-suicides-chatbots/" target="_blank">Fortune</a></div>
+          <div class="web-item">📊 <strong>72% des ados</strong> ont utilisé des chatbots compagnons, 33% maintenant une relation amicale ou romantique avec eux (Common Sense Media 2026). — <a href="https://intelligence-artificielle.developpez.com/actu/382536/" target="_blank">Developpez.com</a></div>
+          <div class="web-item">🔒 <strong>Drexel University (avril 2026) :</strong> Des adolescents expriment eux-mêmes des inquiétudes sur leur attachement aux chatbots IA, reconnaissant une forme de dépendance émotionnelle. — <a href="https://drexel.edu/news/archive/2026/April/teen-AI-chatbot-addiction" target="_blank">Drexel News</a></div>
+        </div>
+        <div class="web-section">
+          <h4>Réseaux sociaux &amp; Santé mentale</h4>
+          <div class="web-item">🧠 <strong>ANSES (jan. 2026) :</strong> Les algorithmes créent un "effet spirale" vers des contenus extrêmes. Relation dose-réponse : +13% de risque dépressif par heure supplémentaire. — <a href="https://www.anses.fr/en/content/safeguard-social-media-use-protect-health-adolescents" target="_blank">ANSES</a></div>
+          <div class="web-item">🔬 <strong>APHP 2026 :</strong> L'usage excessif des réseaux sociaux est associé à 590 000 cas supplémentaires de dépression chez les adolescents français. — <a href="https://www.aphp.fr/actualites/reseaux-sociaux-et-sante-mentale" target="_blank">APHP</a></div>
+          <div class="web-item">👧 <strong>Les filles plus touchées :</strong> 1 ado sur 2 en France passe 2 à 5h/jour sur smartphone pour les réseaux sociaux, avec des disparités de genre marquées sur l'estime de soi et la dépression.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry-footer">Veille du 09/06/2026 • PubMed + Web • Claude Code</div>
+  </div>
+  <!-- WEEK_CONTENT_END:week-2026-06-09 -->
+
+  <div class="tab-content" id="welcome">
+    <div class="empty">
+      <div class="icon">📖</div>
+      <p><strong>Première veille à venir</strong><br><br>
+      La veille tourne chaque <strong>dimanche à 19h</strong> (bi-hebdomadaire).<br>
+      Articles PubMed + actualités web apparaîtront ici,<br>avec les angles narratifs pour le livre.<br><br>
+      📱 <strong>Ajouter à l'écran d'accueil :</strong><br>
+      Ouvre dans Safari → Partager → <em>"Sur l'écran d'accueil"</em></p>
+    </div>
+  </div>
+</div>
+
+
+</body>
+</html>
