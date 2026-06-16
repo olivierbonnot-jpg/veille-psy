@@ -1,0 +1,38 @@
+name: Veille IA — Mise à jour hebdomadaire
+
+on:
+  schedule:
+    # Dimanche 17h UTC = 19h Paris (CEST été)
+    - cron: '0 17 * * 0'
+  workflow_dispatch:
+
+jobs:
+  update-veille-ia:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout dépôt
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installer dépendances
+        run: pip install requests anthropic
+
+      - name: Lancer la mise à jour
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/update_veille_ia.py
+
+      - name: Commit & push
+        run: |
+          git config user.name  "veille-psy-bot"
+          git config user.email "bot@veille-psy.local"
+          git add veille-ia.html
+          git diff --staged --quiet && echo "Rien à commiter" || \
+            git commit -m "Veille IA automatique du $(date +'%d/%m/%Y')" && git push
