@@ -2,14 +2,15 @@
 """
 Mise à jour hebdomadaire automatique — Veille IA Enfants/Adolescents
 Fichier cible : veille-ia.html
-4 domaines PubMed + Top 3 orienté livre.
+4 domaines PubMed + section web via flux RSS automatisée.
 """
 
 import os, re, json, time, sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
+import feedparser
 import anthropic as ant
 
 # ── Configuration ────────────────────────────────────────────────────────────
@@ -30,6 +31,7 @@ DATE_FROM  = (TODAY - timedelta(days=7)).strftime("%Y/%m/%d")
 WEEK_ID    = f"week-{TODAY.strftime('%Y-%m-%d')}"
 WEEK_LABEL = TODAY.strftime("%d/%m")
 DATE_LABEL = TODAY.strftime("%d/%m/%Y")
+CUTOFF     = TODAY - timedelta(days=7)
 
 HIGH_IMPACT = {
     "JAMA", "Lancet", "N Engl J Med", "Nature", "Science", "BMJ",
@@ -37,6 +39,33 @@ HIGH_IMPACT = {
     "JAMA Pediatr", "Pediatrics", "J Med Internet Res",
     "Psychol Med", "J Child Psychol Psychiatry", "Dev Psychol",
 }
+
+# ── Flux RSS ─────────────────────────────────────────────────────────────────
+
+RSS_FEEDS = [
+    {"url": "https://www.lemonde.fr/pixels/rss_full.xml",          "name": "Le Monde Pixels",          "lang": "fr"},
+    {"url": "https://theconversation.com/fr/articles.atom",        "name": "The Conversation FR",       "lang": "fr"},
+    {"url": "https://presse.inserm.fr/feed/",                      "name": "Inserm",                    "lang": "fr"},
+    {"url": "https://www.cnil.fr/fr/rss.xml",                      "name": "CNIL",                      "lang": "fr"},
+    {"url": "https://www.technologyreview.com/feed/",              "name": "MIT Technology Review",     "lang": "en"},
+]
+
+# Mots-clés pour filtrer les articles pertinents
+KEYWORDS_FR = [
+    "enfant", "adolescent", "ado", "jeune", "mineur",
+    "intelligence artificielle", "chatbot", "écran", "numérique",
+    "réseau social", "tiktok", "instagram", "snapchat",
+    "santé mentale", "dépression", "anxiété", "addiction",
+    "éducation", "école", "apprentissage",
+]
+KEYWORDS_EN = [
+    "child", "children", "adolescent", "teen", "youth", "minor",
+    "artificial intelligence", "chatbot", "screen time",
+    "social media", "tiktok", "instagram", "mental health",
+    "depression", "anxiety", "addiction", "education",
+]
+
+# ── Domaines PubMed ───────────────────────────────────────────────────────────
 
 DOMAINS = [
     {
@@ -87,7 +116,7 @@ DOMAINS = [
             '("cognitive offloading"[Title/Abstract] OR "AI in education"[Title/Abstract] '
             'OR "artificial intelligence" education[Title/Abstract] '
             'OR "ChatGPT" education[Title/Abstract] '
-            'OR "critical thinking"[Title/Abstract] OR "academic integrity"[Title/Abstract] '
+            'OR "critical thinking"[Title/Abstract] '
             'OR "generative AI" learning[Title/Abstract]) '
             'AND (student[Title/Abstract] OR child[MeSH Terms] '
             'OR adolescent[MeSH Terms] OR school[Title/Abstract])'
@@ -95,7 +124,7 @@ DOMAINS = [
     },
 ]
 
-# ── PubMed helpers ───────────────────────────────────────────────────────────
+# ── PubMed helpers ────────────────────────────────────────────────────────────
 
 def search_pubmed(query: str, max_results: int = 25) -> list:
     params = {
@@ -188,9 +217,63 @@ def fetch_articles(pmids: list) -> list:
     return articles
 
 
-# ── Claude API ───────────────────────────────────────────────────────────────
+# ── RSS helpers ───────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """Tu es un assistant de veille scientifique pour un Professeur de Médecine (pédopsychiatre) qui écrit un livre grand public intitulé "Votre enfant parle à une machine", sur les effets de l'IA et des écrans sur le développement de l'enfant et de l'adolescent.
+def is_relevant(text: str, lang: str) -> bool:
+    """Vérifie si un titre/description contient des mots-clés pertinents."""
+    text_lower = text.lower()
+    keywords = KEYWORDS_FR if lang == "fr" else KEYWORDS_EN
+    return any(kw in text_lower for kw in keywords)
+
+
+def entry_date(entry) -> datetime:
+    """Extrait la date d'un item RSS (avec fallback)."""
+    for attr in ("published_parsed", "updated_parsed", "created_parsed"):
+        t = getattr(entry, attr, None)
+        if t:
+            try:
+                return datetime(*t[:6])
+            except Exception:
+                pass
+    return TODAY  # fallback : inclure si date inconnue
+
+
+def fetch_web_items(max_per_feed: int = 5) -> list:
+    """Récupère et filtre les items RSS de la semaine."""
+    items = []
+    for feed_cfg in RSS_FEEDS:
+        try:
+            feed = feedparser.parse(feed_cfg["url"])
+            count = 0
+            for entry in feed.entries:
+                if count >= max_per_feed:
+                    break
+                # Filtre date
+                pub_date = entry_date(entry)
+                if pub_date < CUTOFF:
+                    continue
+                # Filtre pertinence
+                text = f"{entry.get('title', '')} {entry.get('summary', '')}"
+                if not is_relevant(text, feed_cfg["lang"]):
+                    continue
+                items.append({
+                    "title":  entry.get("title", "").strip(),
+                    "url":    entry.get("link", ""),
+                    "source": feed_cfg["name"],
+                    "lang":   feed_cfg["lang"],
+                    "summary": entry.get("summary", "")[:500],
+                })
+                count += 1
+            print(f"    📡 {feed_cfg['name']} : {count} item(s) pertinent(s)")
+        except Exception as e:
+            print(f"    ⚠️  Erreur RSS {feed_cfg['name']} : {e}")
+
+    return items[:12]  # max 12 items au total
+
+
+# ── Claude API ────────────────────────────────────────────────────────────────
+
+SYSTEM_PUBMED = """Tu es un assistant de veille scientifique pour un Professeur de Médecine (pédopsychiatre) qui écrit un livre grand public intitulé "Votre enfant parle à une machine", sur les effets de l'IA et des écrans sur le développement de l'enfant et de l'adolescent.
 
 Pour chaque article scientifique, génère exactement 4 champs :
 - resume : synthèse factuelle (design, population, résultats chiffrés, limites). 2-3 phrases max.
@@ -203,8 +286,18 @@ Résultats chiffrés si disponibles dans l'abstract.
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks.
 Format : {"resume":"...","lien_livre":"...","argument":"...","article_type":"..."}"""
 
+SYSTEM_WEB = """Tu es un assistant de veille pour un Professeur de Médecine (pédopsychiatre) qui écrit un livre sur les effets de l'IA et des écrans sur les enfants et adolescents.
 
-def claude_summary(article: dict) -> dict | None:
+On te donne une liste d'articles web de la semaine. Pour chacun, génère un bullet point court en français :
+- Si l'article est en anglais, traduis et résume en français.
+- Format : une phrase qui commence par une emoji pertinente, suivie du fait clé ou de l'information principale, avec le nom de la source entre parenthèses.
+- Style : factuel, direct, 1-2 lignes max par item.
+
+Réponds UNIQUEMENT en JSON valide.
+Format : {"items": ["🔍 ...(Source)", "⚠️ ...(Source)", ...]}"""
+
+
+def claude_pubmed_summary(article: dict) -> dict | None:
     client = ant.Anthropic(api_key=ANTHROPIC_API_KEY)
     user_content = (
         f"Titre : {article['title']}\n"
@@ -217,16 +310,12 @@ def claude_summary(article: dict) -> dict | None:
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=1000,
-            system=SYSTEM_PROMPT,
+            system=SYSTEM_PUBMED,
             messages=[{"role": "user", "content": user_content}],
         )
-        if not message.content or not hasattr(message.content[0], 'text'):
-            return None
         raw = message.content[0].text.strip()
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw).strip()
-        if not raw:
-            return None
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
@@ -239,7 +328,34 @@ def claude_summary(article: dict) -> dict | None:
         return None
 
 
-# ── HTML builders ────────────────────────────────────────────────────────────
+def claude_web_bullets(web_items: list) -> list:
+    """Génère les bullets web en un seul appel Claude."""
+    if not web_items:
+        return []
+    client = ant.Anthropic(api_key=ANTHROPIC_API_KEY)
+    items_text = "\n\n".join(
+        f"[{i+1}] Titre : {it['title']}\nSource : {it['source']} ({it['lang']})\nRésumé : {it['summary']}"
+        for i, it in enumerate(web_items)
+    )
+    try:
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1500,
+            system=SYSTEM_WEB,
+            messages=[{"role": "user", "content": items_text}],
+        )
+        raw = message.content[0].text.strip()
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw).strip()
+        data = json.loads(raw)
+        return data.get("items", [])
+    except Exception as exc:
+        print(f"    ⚠️  Claude web error : {exc}")
+        # Fallback : utiliser les titres bruts
+        return [f"🔗 {it['title']} ({it['source']})" for it in web_items]
+
+
+# ── HTML builders ─────────────────────────────────────────────────────────────
 
 def _esc(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -278,6 +394,33 @@ def html_domain(domain: dict, articles: list, summaries: list) -> str:
     )
 
 
+def html_web_section(bullets: list, web_items: list) -> str:
+    """Génère la section web avec liens cliquables."""
+    if not bullets:
+        return ""
+    items_html = ""
+    for i, bullet in enumerate(bullets):
+        url = web_items[i]["url"] if i < len(web_items) else ""
+        bullet_esc = _esc(bullet)
+        if url:
+            # Rendre le bullet cliquable
+            items_html += f'\n          <div class="web-item"><a href="{url}" target="_blank">{bullet_esc}</a></div>'
+        else:
+            items_html += f'\n          <div class="web-item">{bullet_esc}</div>'
+
+    return (
+        f'\n    <div class="domain domain-web">'
+        f'\n      <div class="domain-title">🌐 Actualités &amp; Rapports</div>'
+        f'\n      <div class="article">'
+        f'\n        <div class="web-section">'
+        f'\n          <h4>Cette semaine</h4>'
+        f'{items_html}'
+        f'\n        </div>'
+        f'\n      </div>'
+        f'\n    </div>'
+    )
+
+
 def html_top3(flat: list) -> str:
     medals = ["🥇", "🥈", "🥉"]
     items = ""
@@ -301,25 +444,26 @@ def html_top3(flat: list) -> str:
     )
 
 
-def build_week_block(domain_data: list) -> str:
+def build_week_block(domain_data: list, web_bullets: list, web_items: list) -> str:
     flat = sorted(
         [(art, summ) for _, arts, summs in domain_data
          for art, summ in zip(arts, summs) if summ],
         key=lambda x: x[0]["score"], reverse=True,
     )
-    top3    = html_top3(flat)
-    domains = "".join(html_domain(d, a, s) for d, a, s in domain_data)
+    top3       = html_top3(flat)
+    domains    = "".join(html_domain(d, a, s) for d, a, s in domain_data)
+    web_html   = html_web_section(web_bullets, web_items)
     return (
         f"  <!-- WEEK_CONTENT_START:{WEEK_ID} -->\n"
         f'  <div class="tab-content" id="{WEEK_ID}">\n\n'
-        f"{top3}\n{domains}\n\n"
-        f'    <div class="entry-footer">Veille du {DATE_LABEL} • PubMed • Claude</div>\n'
+        f"{top3}\n{domains}\n{web_html}\n\n"
+        f'    <div class="entry-footer">Veille du {DATE_LABEL} • PubMed + Web • Claude</div>\n'
         f"  </div>\n"
         f"  <!-- WEEK_CONTENT_END:{WEEK_ID} -->\n"
     )
 
 
-# ── Injection dans veille-ia.html ────────────────────────────────────────────
+# ── Injection dans veille-ia.html ─────────────────────────────────────────────
 
 def inject(week_block: str) -> None:
     with open(NEWSLETTER_PATH, "r", encoding="utf-8") as f:
@@ -350,12 +494,13 @@ def inject(week_block: str) -> None:
     print(f"✅  veille-ia.html mis à jour — semaine {WEEK_ID}")
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    print(f"🔍  Veille IA PubMed : {DATE_FROM} → {DATE_TO}\n")
-    domain_data = []
+    print(f"🔍  Veille IA : {DATE_FROM} → {DATE_TO}\n")
 
+    # ── PubMed ──
+    domain_data = []
     for domain in DOMAINS:
         print(f"📂  Domaine {domain['id'].upper()} : {domain['title']}")
         try:
@@ -376,7 +521,7 @@ def main():
             summaries = []
             for art in selected:
                 print(f"    • [{art['type_label']}] {art['title'][:65]}...")
-                summaries.append(claude_summary(art))
+                summaries.append(claude_pubmed_summary(art))
                 time.sleep(CLAUDE_SLEEP)
 
             domain_data.append((domain, selected, summaries))
@@ -384,15 +529,26 @@ def main():
         except Exception as e:
             print(f"    ⚠️  Erreur domaine {domain['id'].upper()}, ignoré : {e}")
             domain_data.append((domain, [], []))
-            continue
 
+    # ── RSS Web ──
+    print(f"\n🌐  Veille web RSS...")
+    web_items = fetch_web_items()
+    web_bullets = []
+    if web_items:
+        print(f"    {len(web_items)} item(s) pertinent(s) trouvé(s) — génération bullets...")
+        web_bullets = claude_web_bullets(web_items)
+        time.sleep(CLAUDE_SLEEP)
+    else:
+        print("    Aucun item web pertinent cette semaine.")
+
+    # ── Vérification ──
     total = sum(sum(1 for s in summs if s) for _, _, summs in domain_data)
-    if total == 0:
-        print("\n⚠️  Aucun résumé généré — pas de mise à jour.")
+    if total == 0 and not web_bullets:
+        print("\n⚠️  Aucun contenu généré — pas de mise à jour.")
         sys.exit(0)
 
-    print(f"\n📝  {total} résumé(s) — injection dans {NEWSLETTER_PATH}")
-    inject(build_week_block(domain_data))
+    print(f"\n📝  {total} résumé(s) PubMed + {len(web_bullets)} bullet(s) web — injection...")
+    inject(build_week_block(domain_data, web_bullets, web_items))
 
 
 if __name__ == "__main__":
