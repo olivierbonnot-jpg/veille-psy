@@ -240,12 +240,28 @@ def claude_summary(article: dict) -> dict | None:
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
+        if not message.content or not hasattr(message.content[0], 'text'):
+            print(f"    ⚠️  Réponse vide (PMID {article['pmid']})")
+            return None
         raw = message.content[0].text.strip()
-        return json.loads(raw)
+        # Supprimer les balises markdown si présentes
+        raw = re.sub(r'^```(?:json)?\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw).strip()
+        if not raw:
+            print(f"    ⚠️  Texte vide après nettoyage (PMID {article['pmid']})")
+            return None
+        # Tentative directe puis extraction regex
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                return json.loads(match.group())
+            print(f"    ⚠️  JSON non parseable (PMID {article['pmid']}) : {raw[:100]}")
+            return None
     except Exception as exc:
         print(f"    ⚠️  Claude error (PMID {article['pmid']}) : {exc}")
         return None
-
 
 # ── HTML builders ────────────────────────────────────────────────────────────
 
