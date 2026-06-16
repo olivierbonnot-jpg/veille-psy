@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """
 Mise à jour hebdomadaire automatique — Veille Psy Hebdo
-Corrections v2 :
-  - Utilisation de la librairie anthropic officielle (plus de raw requests)
-  - Modèle claude-haiku-4-5-20251001 (disponible, rapide, économique)
-  - Requêtes PubMed élargies pour TDAH et autres domaines
 """
 
 import os, re, json, time, sys
@@ -103,7 +99,7 @@ DOMAINS = [
         "query": (
             '(biomarker[Title/Abstract] OR neuroplasticity[Title/Abstract] '
             'OR neuroinflammation[Title/Abstract] OR epigenetics[Title/Abstract] '
-            'OR "novel" [Title/Abstract] OR pharmacogenomics[Title/Abstract] '
+            'OR "novel"[Title/Abstract] OR pharmacogenomics[Title/Abstract] '
             'OR "gut microbiome"[Title/Abstract] OR proteomics[Title/Abstract]) '
             'AND (psychiatric[Title/Abstract] OR "mental health"[Title/Abstract] '
             'OR depression[MeSH Terms] OR schizophrenia[MeSH Terms] '
@@ -131,7 +127,10 @@ def search_pubmed(query: str, max_results: int = 25) -> list:
 def fetch_articles(pmids: list) -> list:
     if not pmids:
         return []
-    params = {"db": "pubmed", "id": ",".join(pmids), "retmode": "xml", "rettype": "abstract"}
+    params = {
+        "db": "pubmed", "id": ",".join(pmids),
+        "retmode": "xml", "rettype": "abstract"
+    }
     r = requests.get(NCBI_BASE + "efetch.fcgi", params=params, timeout=40)
     r.raise_for_status()
 
@@ -179,19 +178,19 @@ def fetch_articles(pmids: list) -> list:
         pt_lower  = [p.lower() for p in pub_types]
 
         score = 0
-        if any("randomized" in p for p in pt_lower):       score += 10
-        if any("meta-analysis" in p for p in pt_lower):    score += 10
+        if any("randomized" in p for p in pt_lower):        score += 10
+        if any("meta-analysis" in p for p in pt_lower):     score += 10
         if any("systematic review" in p for p in pt_lower): score += 8
         if any("review" in p for p in pt_lower):            score += 4
-        if any("clinical trial" in p for p in pt_lower):   score += 6
-        if journal in HIGH_IMPACT:                          score += 5
+        if any("clinical trial" in p for p in pt_lower):    score += 6
+        if journal in HIGH_IMPACT:                           score += 5
 
-        if any("randomized" in p for p in pt_lower):        type_label = "RCT"
-        elif any("meta-analysis" in p for p in pt_lower):   type_label = "Méta-analyse"
+        if any("randomized" in p for p in pt_lower):         type_label = "RCT"
+        elif any("meta-analysis" in p for p in pt_lower):    type_label = "Méta-analyse"
         elif any("systematic review" in p for p in pt_lower): type_label = "Revue systématique"
-        elif any("review" in p for p in pt_lower):           type_label = "Revue"
-        elif any("clinical trial" in p for p in pt_lower):  type_label = "Essai clinique"
-        else:                                                type_label = "Autre"
+        elif any("review" in p for p in pt_lower):            type_label = "Revue"
+        elif any("clinical trial" in p for p in pt_lower):   type_label = "Essai clinique"
+        else:                                                  type_label = "Autre"
 
         doi = ""
         for eid in art.findall(".//ArticleId"):
@@ -209,7 +208,7 @@ def fetch_articles(pmids: list) -> list:
     return articles
 
 
-# ── Claude API (librairie officielle) ────────────────────────────────────────
+# ── Claude API ───────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """Tu es un assistant de veille scientifique pour un Professeur de Médecine spécialisé en psychiatrie de l'enfant et de l'adolescent.
 
@@ -244,13 +243,11 @@ def claude_summary(article: dict) -> dict | None:
             print(f"    ⚠️  Réponse vide (PMID {article['pmid']})")
             return None
         raw = message.content[0].text.strip()
-        # Supprimer les balises markdown si présentes
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw).strip()
         if not raw:
-            print(f"    ⚠️  Texte vide après nettoyage (PMID {article['pmid']})")
+            print(f"    ⚠️  Texte vide (PMID {article['pmid']})")
             return None
-        # Tentative directe puis extraction regex
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
@@ -262,6 +259,7 @@ def claude_summary(article: dict) -> dict | None:
     except Exception as exc:
         print(f"    ⚠️  Claude error (PMID {article['pmid']}) : {exc}")
         return None
+
 
 # ── HTML builders ────────────────────────────────────────────────────────────
 
@@ -289,7 +287,12 @@ def html_domain(domain: dict, articles: list, summaries: list) -> str:
     body = "".join(html_article(a, s) for a, s in zip(articles, summaries) if s)
     if not body:
         return ""
-    return f'\n    <div class="domain {domain["class"]}">\n      <div class="domain-title">{domain["title"]}</div>\n      {body}\n    </div>'
+    return (
+        f'\n    <div class="domain {domain["class"]}">'
+        f'\n      <div class="domain-title">{domain["title"]}</div>'
+        f'{body}'
+        f'\n    </div>'
+    )
 
 
 def html_top3(flat: list) -> str:
@@ -305,16 +308,22 @@ def html_top3(flat: list) -> str:
             f'<div class="top3-text"><strong>{_esc(art["title"])}</strong>'
             f'{_esc(pratique)}</div></div>\n'
         )
-    return f'    <div class="top3">\n      <h3>⭐ Top 3 de la semaine</h3>\n{items}    </div>'
+    return (
+        '    <div class="top3">\n'
+        '      <h3>⭐ Top 3 de la semaine</h3>\n'
+        f'{items}'
+        '    </div>'
+    )
 
 
 def build_week_block(domain_data: list) -> str:
     flat = sorted(
-        [(art, summ) for _, arts, summs in domain_data for art, summ in zip(arts, summs) if summ],
+        [(art, summ) for _, arts, summs in domain_data
+         for art, summ in zip(arts, summs) if summ],
         key=lambda x: x[0]["score"], reverse=True,
     )
-    top3      = html_top3(flat)
-    domains   = "".join(html_domain(d, a, s) for d, a, s in domain_data)
+    top3    = html_top3(flat)
+    domains = "".join(html_domain(d, a, s) for d, a, s in domain_data)
     return (
         f"  <!-- WEEK_CONTENT_START:{WEEK_ID} -->\n"
         f'  <div class="tab-content" id="{WEEK_ID}">\n\n'
@@ -364,27 +373,33 @@ def main():
 
     for domain in DOMAINS:
         print(f"📂  Domaine {domain['id'].upper()} : {domain['title']}")
-        pmids = search_pubmed(domain["query"])
-        time.sleep(NCBI_SLEEP)
-        print(f"    {len(pmids)} PMID(s)")
+        try:
+            pmids = search_pubmed(domain["query"])
+            time.sleep(NCBI_SLEEP)
+            print(f"    {len(pmids)} PMID(s)")
 
-        if not pmids:
+            if not pmids:
+                domain_data.append((domain, [], []))
+                continue
+
+            articles = fetch_articles(pmids[:25])
+            time.sleep(NCBI_SLEEP)
+            articles.sort(key=lambda a: a["score"], reverse=True)
+            selected = articles[:ARTICLES_PER_DOM]
+            print(f"    {len(selected)} article(s) sélectionné(s)")
+
+            summaries = []
+            for art in selected:
+                print(f"    • [{art['type_label']}] {art['title'][:65]}...")
+                summaries.append(claude_summary(art))
+                time.sleep(CLAUDE_SLEEP)
+
+            domain_data.append((domain, selected, summaries))
+
+        except Exception as e:
+            print(f"    ⚠️  Erreur domaine {domain['id'].upper()}, ignoré : {e}")
             domain_data.append((domain, [], []))
             continue
-
-        articles = fetch_articles(pmids[:25])
-        time.sleep(NCBI_SLEEP)
-        articles.sort(key=lambda a: a["score"], reverse=True)
-        selected = articles[:ARTICLES_PER_DOM]
-        print(f"    {len(selected)} article(s) sélectionné(s)")
-
-        summaries = []
-        for art in selected:
-            print(f"    • [{art['type_label']}] {art['title'][:65]}...")
-            summaries.append(claude_summary(art))
-            time.sleep(CLAUDE_SLEEP)
-
-        domain_data.append((domain, selected, summaries))
 
     total = sum(sum(1 for s in summs if s) for _, _, summs in domain_data)
     if total == 0:
