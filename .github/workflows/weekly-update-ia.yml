@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: Installer dépendances
-        run: pip install requests anthropic
+        run: pip install requests anthropic feedparser
 
       - name: Lancer la mise à jour
         env:
