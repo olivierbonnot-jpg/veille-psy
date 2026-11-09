@@ -2,8 +2,8 @@ name: Veille Psy — Mise à jour hebdomadaire
 
 on:
   schedule:
-    # Lundi 7h UTC = 9h Paris (CEST été) / 8h (CET hiver)
-    - cron: '0 7 * * 1'
+    # Dimanche 16h UTC = 17h Paris (hiver) / 18h (été), décalé d'1h de la veille IA
+    - cron: '0 16 * * 0'
   workflow_dispatch:   # Déclenchement manuel possible depuis l'onglet Actions
 
 jobs:
